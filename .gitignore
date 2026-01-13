@@ -1,0 +1,17 @@
+# secrets
+.env
+.env.*
+
+# python cache
+__pycache__/
+*.pyc
+
+# streamlit / local artifacts
+.st_data/
+*.parquet
+*.pkl
+
+# OS/IDE
+.vscode/
+.idea/
+.DS_Store
