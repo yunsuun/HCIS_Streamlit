@@ -13,3 +13,4 @@ st_data/model_df.parquet
 .vscode/
 .idea/
 .DS_Store
+/temp
