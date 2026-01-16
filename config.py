@@ -22,10 +22,9 @@ TARGET_COL = "target"
 BASE_DIR = Path(__file__).resolve().parent
 ST_DATA_DIR = BASE_DIR / "st_data"
 
-UPLOAD_PARQUET = ST_DATA_DIR / "app_test_4.parquet" 
 MAPPING_PATH = ST_DATA_DIR / "reason_code_mapping.parquet"
 MODEL_DF_PARQUET = ST_DATA_DIR / "model_df.parquet"
-DEFAULT_SAMPLE_PARQUET = ST_DATA_DIR / "sample" / "app_test_sample_id.parquet"
+DEFAULT_SAMPLE_PARQUET = ST_DATA_DIR / "app_test_sample_id.parquet"
 
 # ---------------- Score policy ----------------
 
