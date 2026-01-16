@@ -26,7 +26,8 @@ from config import (
     T_LOW,
     T_HIGH,
     MODEL_DF_PARQUET,
-    ST_DATA_DIR
+    ST_DATA_DIR,
+    DEFAULT_SAMPLE_PARQUET
 )
 
 # 데이터 로드 / 전처리 / 점수화 관련 공통 함수
@@ -71,6 +72,32 @@ if "data_ready" not in st.session_state:
 
 if "data_version" not in st.session_state:
     st.session_state["data_version"] = 0     # 캐시 갱신 키
+
+# ===========================================================
+# Auto bootstrap: 샘플 데이터가 있으면 기본으로 활성화
+# ===========================================================
+def bootstrap_default_sample():
+    """
+    앱 실행 시:
+    - model_df.parquet이 없고
+    - DEFAULT_SAMPLE_PARQUET가 존재하면
+    → 샘플을 model_df.parquet으로 복사(저장)하고 data_ready=True로 켠다.
+    """
+    if MODEL_DF_PARQUET.exists():
+        return
+
+    if DEFAULT_SAMPLE_PARQUET.exists():
+        ST_DATA_DIR.mkdir(parents=True, exist_ok=True)
+
+        df_sample = pd.read_parquet(DEFAULT_SAMPLE_PARQUET)
+        df_sample.to_parquet(MODEL_DF_PARQUET, index=False)
+
+        st.session_state["data_ready"] = True
+        st.session_state["data_version"] += 1
+        st.cache_data.clear()
+
+# 세션 초기화 직후 1회 실행
+bootstrap_default_sample()
 
 
 # ===========================================================
@@ -612,8 +639,30 @@ with st.container():
 
             if not admin_mode:
                 st.info("관리자 모드에서만 업로드 가능합니다.")
-                st.stop()
 
+            # 샘플 데이터로 바로 데모 실행
+            c0, c1 = st.columns([1, 2])
+            with c0:
+                load_sample = st.button("🧪 샘플 데이터 로드")
+            with c1:
+                st.caption("업로드 없이도 샘플로 Tab2~Tab3 데모를 볼 수 있습니다.")
+
+            if load_sample:
+                if DEFAULT_SAMPLE_PARQUET.exists():
+                    # 샘플을 '운영 결과 파일' 위치로 복사해두면, 기존 로직을 그대로 재사용 가능
+                    ST_DATA_DIR.mkdir(parents=True, exist_ok=True)
+                    df_sample = pd.read_parquet(DEFAULT_SAMPLE_PARQUET)
+                    df_sample.to_parquet(MODEL_DF_PARQUET, index=False)
+
+                    st.session_state["data_ready"] = True
+                    st.session_state["data_version"] += 1
+                    st.cache_data.clear()
+                    st.success("✅ 샘플 데이터 로드 완료! Tab2/Tab3에서 분포/시뮬레이션을 확인하세요.")
+                    st.rerun()
+                else:
+                    st.error(f"샘플 파일이 없습니다: {DEFAULT_SAMPLE_PARQUET}")
+
+            st.divider()
             # ---------------------------
             # 0) 세션 키 초기화
             # ---------------------------
@@ -645,10 +694,10 @@ with st.container():
             if reset:
                 # 1) 화면 결과 비우기
                 st.session_state["tab4_result_df"] = None
-                # ✅ 통계 비활성화 + 캐시 갱신
+                # 통계 비활성화 + 캐시 갱신
                 st.session_state["data_ready"] = False
                 st.session_state["data_version"] += 1
-                # 2) ✅ 디스크에 남아있는 결과 파일까지 삭제
+                # 2) 디스크에 남아있는 결과 파일까지 삭제
                 try:
                     if MODEL_DF_PARQUET.exists():
                         MODEL_DF_PARQUET.unlink()

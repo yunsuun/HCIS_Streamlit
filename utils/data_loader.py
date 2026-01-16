@@ -1,6 +1,6 @@
 import pandas as pd
 import streamlit as st
-from config import PD_COL_CANDIDATES, ID_COL, MODEL_DF_PARQUET
+from config import PD_COL_CANDIDATES, ID_COL, MODEL_DF_PARQUET, DEFAULT_SAMPLE_PARQUET
 
 # def _try_read_parquet(path: str):
 #     if not path:
@@ -16,15 +16,16 @@ def load_base_df(data_version: int = 0):
       1) config.DATA_CANDIDATES 중 존재하는 첫 파일
     """
     if MODEL_DF_PARQUET.exists():
-        return pd.read_parquet(MODEL_DF_PARQUET), str(MODEL_DF_PARQUET)
-    return None, None
+        df = pd.read_parquet(MODEL_DF_PARQUET)
+        return df, str(MODEL_DF_PARQUET)
 
-# @st.cache_data(show_spinner=False)
-# def load_oof_df():
-#     """OOF(검증용) 예측 로더. 고객 화면에서는 사용하지 말 것."""
-#     if os.path.exists(OOF_PRED_PATH):
-#         return pd.read_parquet(OOF_PRED_PATH), OOF_PRED_PATH
-#     return None, None
+    # 2) 없으면 기본 샘플 사용
+    if DEFAULT_SAMPLE_PARQUET.exists():
+        df = pd.read_parquet(DEFAULT_SAMPLE_PARQUET)
+        return df, str(DEFAULT_SAMPLE_PARQUET)
+
+    # 3) 둘 다 없으면 로드 실패
+    return None, None
 
 def ensure_id(df: pd.DataFrame):
     if df is None:
