@@ -6,10 +6,8 @@
 __pycache__/
 *.pyc
 
-# streamlit / local artifacts
-.st_data/
-*.parquet
-*.pkl
+# 결과물만 제외
+st_data/model_df.parquet
 
 # OS/IDE
 .vscode/
