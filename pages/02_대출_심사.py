@@ -12,6 +12,7 @@ import numpy as np
 import pandas as pd
 import streamlit.components.v1 as components
 
+from pathlib import Path
 from config import (
     APP_TITLE, ID_COL, OFFSET, FACTOR, T_LOW, T_HIGH,
     MODEL_DF_PARQUET, MAPPING_PATH, SCORE_MIN, SCORE_MAX, TOP_N
@@ -21,7 +22,6 @@ from utils.shap_reason import get_top_reasons_from_shap_row
 from utils.hcis_core import build_map_dict, build_payload_from_team_row, compute_hcis_columns
 from utils.behavioral_insights import generate_behavioral_insights
 from utils.llm_gemini import ask_underwriter
-from pathlib import Path
 
 st.markdown("""
 <style>

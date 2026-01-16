@@ -1,5 +1,4 @@
 import pandas as pd
-import numpy as np
 
 from modules.cleaning import clean_data_load, setting_train, ApplicantTypeClassifier, app_derived_variable, pos_derived_variable, cc_derived_variable, inst_derived_variable, build_id_sets, split_case_ids
 from modules.cleaning import pos_curr_features, cc_curr_features, inst_curr_features, run_pre_block, run_bureau_block, preprocess_full_minimal

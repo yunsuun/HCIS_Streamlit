@@ -1,21 +1,15 @@
 # llm_gemini.py  (권장 버전)
 from __future__ import annotations
 import os, json, time
-from typing import Dict, Any, Optional
 from dotenv import load_dotenv
-from google import genai
-from google.genai import types
-from pydantic import BaseModel
 
-import os, json, time
 from typing import Any, Dict, List, Optional, Callable, Tuple, Type
 from pathlib import Path
-
-from dotenv import load_dotenv
 from pydantic import BaseModel, Field
+
+from google.genai.errors import ServerError
 from google import genai
 from google.genai import types
-from google.genai.errors import ServerError
 
 # .env 로딩
 _CURRENT = Path(__file__).resolve()
@@ -27,9 +21,6 @@ load_dotenv(dotenv_path=ENV_PATH)
 # - 심사용: SHAP/값/Top10기여%까지 상세 노출 OK
 # - 고객용: feature명/SHAP/내부 QC 등 내부정보 노출 금지
 # =========================================================
-
-from typing import List
-from pydantic import BaseModel, Field
 
 
 # ---------------------------------------------------------

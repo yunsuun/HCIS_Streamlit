@@ -2,11 +2,9 @@ import numpy as np
 import pandas as pd
 import ast
 
-from config import OFFSET, FACTOR, T_LOW, T_HIGH, PD_CEIL, PD_FLOOR, TOP_N, SCORE_MAX, SCORE_MIN
 from pathlib import Path
 from typing import Dict, Any
-from typing import Dict, Any
-import pandas as pd
+from config import OFFSET, FACTOR, T_LOW, T_HIGH, PD_CEIL, PD_FLOOR, TOP_N, SCORE_MAX, SCORE_MIN
 
 # supergroup 선언
 SUPER_GROUP_MAP = {

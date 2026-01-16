@@ -1,6 +1,5 @@
-# utils/behavioral_insights.py
 from __future__ import annotations
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 import numpy as np
 import pandas as pd
 
@@ -63,7 +62,7 @@ def generate_behavioral_insights(
       1) ref_df가 있으면 분위(상/하)를 사용해 high/low 템플릿 선택
       2) ref_df가 없거나 mid면, SHAP 부호를 보조로 사용(위험↑면 high쪽, 위험↓면 low쪽)하는 fallback
     """
-    # 입력 정리: shap_top_10 우선(이미 정렬되어 있을 확률 높음)
+    # 입력 정리: shap_top_10 우선
     feats: List[str] = []
     vals: List[float] = []
 
