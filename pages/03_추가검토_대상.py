@@ -6,11 +6,11 @@ from pathlib import Path
 
 from config import (
     APP_TITLE, ID_COL, OFFSET, FACTOR, T_LOW, T_HIGH,
-    MODEL_DF_PARQUET, MAPPING_PATH, TOP_N
+    MODEL_DF_PARQUET, DEFAULT_SAMPLE_PARQUET, MAPPING_PATH, TOP_N
 )
 
 from utils.hcis_core import build_map_dict, build_payload_from_team_row, compute_hcis_columns
-from utils.shap_reason import get_top_reasons_from_shap_row
+from utils.shap_reason import get_top_reason_items_from_shap_row
 from utils.risk_types import (
     RISK_TYPES,
     classify_review_payload,
@@ -49,16 +49,23 @@ def load_df_work(data_path: Path) -> pd.DataFrame:
     df[ID_COL] = df[ID_COL].astype(str)
     return df
 
-ST_DATA_DF_PARQUET = Path("st_data") / "model_df.parquet"
+DATA_SRC = None
+df_work = None
 
-if ST_DATA_DF_PARQUET.exists():
-    data_src = f"st_data ({ST_DATA_DF_PARQUET.as_posix()})"
-    df_work = load_df_work(ST_DATA_DF_PARQUET)
+if MODEL_DF_PARQUET.exists():
+    DATA_SRC = f"st_data ({MODEL_DF_PARQUET.as_posix()})"
+    df_work = load_df_work(MODEL_DF_PARQUET)
+
+elif DEFAULT_SAMPLE_PARQUET.exists():
+    DATA_SRC = f"st_data default ({DEFAULT_SAMPLE_PARQUET.as_posix()})"
+    df_work = load_df_work(DEFAULT_SAMPLE_PARQUET)
+
 else:
-    data_src = f"config ({Path(MODEL_DF_PARQUET).as_posix()})"
-    df_work = load_df_work(Path(MODEL_DF_PARQUET))
+    st.info("📂 데이터가 없습니다. 샘플을 로드하거나 업로드 후 처리해 주세요.")
+    st.caption("기본 샘플: st_data/model_df_default.parquet")
 
-st.caption(f"데이터 소스: `{data_src}`")
+
+st.caption(f"데이터 소스: `{DATA_SRC}`")
 
 # HCIS 컬럼 보정
 if ("hcis_score" not in df_work.columns) or ("band" not in df_work.columns):
@@ -121,7 +128,7 @@ def classify_review_rows(df: pd.DataFrame, mapping_path: str) -> pd.DataFrame:
         rt_key, dbg = classify_review_payload(payload)
 
         # UI용 top reasons (간단 문장 10개)
-        reasons_txt = get_top_reasons_from_shap_row(
+        reasons_txt = get_top_reason_items_from_shap_row(
             row_series,
             map_dict,
             top_k=TOP_N,
@@ -143,7 +150,7 @@ def classify_review_rows(df: pd.DataFrame, mapping_path: str) -> pd.DataFrame:
                 "docs_pct": dbg.get("docs_pct"),
                 "capacity_pct": dbg.get("capacity_pct"),
                 "emp_pct": dbg.get("emp_pct"),
-                "top_reasons": " / ".join(reasons_txt) if reasons_txt else "",
+                "top_reasons": " / ".join([it["text"] for it in reasons_txt]) if reasons_txt else "",
             }
         )
 
@@ -310,7 +317,7 @@ with col_f3:
 
     # ms가 전부 NaN이거나, 단일 값이면 slider 대신 고정
     if (not np.isfinite(min_m)) or (not np.isfinite(max_m)):
-        st.info("마진 값이 비어있습니다.")
+        st.info("값이 비어있습니다.")
         margin_range = (-np.inf, np.inf)
     elif np.isclose(min_m, max_m):
         st.info(f"마진이 단일 값입니다: {min_m:.2f}")

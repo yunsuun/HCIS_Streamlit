@@ -11,14 +11,15 @@ import streamlit as st
 import numpy as np
 import pandas as pd
 import streamlit.components.v1 as components
+import math
 
 from pathlib import Path
 from config import (
     APP_TITLE, ID_COL, OFFSET, FACTOR, T_LOW, T_HIGH,
-    MODEL_DF_PARQUET, MAPPING_PATH, SCORE_MIN, SCORE_MAX, TOP_N
+    MODEL_DF_PARQUET, DEFAULT_SAMPLE_PARQUET, MAPPING_PATH, SCORE_MIN, SCORE_MAX, TOP_N
 )
 from utils.llm_report import render_underwriter_report
-from utils.shap_reason import get_top_reasons_from_shap_row
+from utils.shap_reason import get_top_reason_items_from_shap_row
 from utils.hcis_core import build_map_dict, build_payload_from_team_row, compute_hcis_columns
 from utils.behavioral_insights import generate_behavioral_insights
 from utils.llm_gemini import ask_underwriter
@@ -48,15 +49,23 @@ def load_df_work(data_path):
 # -----------------------------------------------------------
 # 운영 테이블 우선 로드 (개요 Tab4 업로드 결과: st_data/model_df.parquet)
 # -----------------------------------------------------------
-ST_DATA_DF_PARQUET = Path("st_data") / "model_df.parquet"
 DATA_SRC = None
+df_work = None
 
-if ST_DATA_DF_PARQUET.exists():
-    DATA_SRC = f"st_data ({ST_DATA_DF_PARQUET.as_posix()})"
-    df_work = load_df_work(ST_DATA_DF_PARQUET)
-else:
-    DATA_SRC = f"config ({Path(MODEL_DF_PARQUET).as_posix()})"
+if MODEL_DF_PARQUET.exists():
+    DATA_SRC = f"st_data ({MODEL_DF_PARQUET.as_posix()})"
     df_work = load_df_work(MODEL_DF_PARQUET)
+
+elif DEFAULT_SAMPLE_PARQUET.exists():
+    DATA_SRC = f"st_data default ({DEFAULT_SAMPLE_PARQUET.as_posix()})"
+    df_work = load_df_work(DEFAULT_SAMPLE_PARQUET)
+
+else:
+    st.info("📂 데이터가 없습니다. 샘플을 로드하거나 업로드 후 처리해 주세요.")
+    st.caption("기본 샘플: st_data/model_df_default.parquet")
+
+if df_work is None:
+    st.stop()
 
 # -----------------------------------------------------------
 # HCIS 컬럼이 없으면 공통 로직으로 생성 (개요/대출심사 일관성 보장)
@@ -71,6 +80,7 @@ if ("hcis_score" not in df_work.columns) or ("band" not in df_work.columns):
 st.title("👤 대출 심사 조회")
 st.caption("본 화면은 고객 간 상대 비교가 아닌, 내부 점수 체계 기준 화면입니다.")
 st.caption(f"데이터 소스: `{DATA_SRC}`")
+st.caption("샘플 데이터를 로드하셨다면 왼쪽 고객 검색에 435478 을 입력해보세요!")
 
 # -----------------------------------------------------------
 # 고객 선택 (사이드바)
@@ -339,6 +349,32 @@ with st.container():
     # -----------------------------------------------------------
     # 주요 참고 요인
     # -----------------------------------------------------------
+
+
+    def _opacity_from_abs_shap(abs_shap: float, max_abs_shap: float) -> float:
+        # 0.25~1.00 범위로 매핑 (sqrt로 과도한 쏠림 완화)
+        if max_abs_shap <= 0:
+            return 0.6
+        x = abs_shap / max_abs_shap
+        x = max(0.0, min(1.0, x))
+        return 0.25 + 0.75 * math.sqrt(x)
+
+    def colorize_risk_direction_with_intensity(text: str, abs_shap: float, max_abs_shap: float) -> str:
+        op = _opacity_from_abs_shap(abs_shap, max_abs_shap)
+
+        # 빨강/초록을 rgba로 투명도만 조절
+        if "위험↑" in text:
+            return text.replace(
+                "위험↑",
+                f"<span style='color: rgba(231, 76, 60, {op:.3f}); font-weight:700;'>위험↑</span>"
+            )
+        if "위험↓" in text:
+            return text.replace(
+                "위험↓",
+                f"<span style='color: rgba(46, 204, 113, {op:.3f}); font-weight:700;'>위험↓</span>"
+            )
+        return text
+
     with col_right:
         st.markdown("""
         <div style="background: #ffffff; border-radius: 14px;
@@ -354,7 +390,7 @@ with st.container():
         """, unsafe_allow_html=True)
 
         # SHAP 기반 Top3 문구 생성
-        reasons = get_top_reasons_from_shap_row(
+        items = get_top_reason_items_from_shap_row(
             row_series,
             map_dict,
             top_k=3,
@@ -362,9 +398,11 @@ with st.container():
             top_values_col="shap_values",
             only_risk_positive=False
         )
+        max_abs = max([it.get("abs_shap", 0.0) for it in items], default=0.0)
 
-        if reasons:
-            for i, r in enumerate(reasons, 1):
+        if items:
+            for i, it in enumerate(items, 1):
+                txt = colorize_risk_direction_with_intensity(it["text"], it.get("abs_shap", 0.0), max_abs)
                 st.markdown(f"""
                 <div style="margin-bottom: 10px;
                             padding: 10px 12px;
@@ -373,7 +411,7 @@ with st.container():
                             font-size: 14px;
                             color: #111;
                             box-shadow: 0 2px 6px rgba(0,0,0,0.08);">
-                    <b>{i}.</b> {r}
+                    <b>{i}.</b> {txt}
                 </div>
                 """, unsafe_allow_html=True)
         else:
@@ -399,13 +437,14 @@ with st.container():
     if st.button("심사팀 코멘트 생성", type="primary"):
         with st.spinner("Gemini 생성 중..."):
             under = ask_underwriter(payload)
+            if under.get("_mode") == "demo":
+                st.info("🧪 데모 모드로 AI 코멘트를 생성했습니다. (API Key 미설정)")
             render_underwriter_report(
                 under=under,
                 band=band,
                 score=score,
                 margin=margin
             )
-        st.success("완료")
         with st.expander("🔧 원본 JSON 보기(디버깅/로그용)", expanded=False):
             st.json(under)
 

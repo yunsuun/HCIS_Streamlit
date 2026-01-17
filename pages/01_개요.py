@@ -73,6 +73,17 @@ if "data_ready" not in st.session_state:
 if "data_version" not in st.session_state:
     st.session_state["data_version"] = 0     # 캐시 갱신 키
 
+# ---------------------------
+# 세션 키 초기화
+# ---------------------------
+if "tab4_uploader_key" not in st.session_state:
+    st.session_state["tab4_uploader_key"] = 0
+
+# 결과 저장용(화면 표시용)
+if "tab4_result_df" not in st.session_state:
+    st.session_state["tab4_result_df"] = None
+
+
 # ===========================================================
 # Auto bootstrap: 샘플 데이터가 있으면 기본으로 활성화
 # ===========================================================
@@ -84,19 +95,15 @@ def bootstrap_default_sample():
     → 샘플을 model_df.parquet으로 복사(저장)하고 data_ready=True로 켠다.
     """
     if MODEL_DF_PARQUET.exists():
+        st.session_state["data_ready"] = True
         return
 
-    if DEFAULT_SAMPLE_PARQUET.exists():
-        ST_DATA_DIR.mkdir(parents=True, exist_ok=True)
-
-        df_sample = pd.read_parquet(DEFAULT_SAMPLE_PARQUET)
-        df_sample.to_parquet(MODEL_DF_PARQUET, index=False)
-
+    elif DEFAULT_SAMPLE_PARQUET.exists():
         st.session_state["data_ready"] = True
         st.session_state["data_version"] += 1
         st.cache_data.clear()
 
-# 세션 초기화 직후 1회 실행
+# 세션 초기화 직후 1회 실행 
 bootstrap_default_sample()
 
 
@@ -640,160 +647,151 @@ with st.container():
             if not admin_mode:
                 st.info("관리자 모드에서만 업로드 가능합니다.")
 
-            # 샘플 데이터로 바로 데모 실행
-            c0, c1 = st.columns([1, 2])
-            with c0:
-                load_sample = st.button("🧪 샘플 데이터 로드")
-            with c1:
-                st.caption("업로드 없이도 샘플로 Tab2~Tab3 데모를 볼 수 있습니다.")
+            else:
+                # 샘플 데이터로 바로 데모 실행
+                c0, c1 = st.columns([1, 2])
+                with c0:
+                    load_sample = st.button("🧪 샘플 데이터 로드")
+                with c1:
+                    st.caption("업로드 없이도 샘플로 Tab2~Tab3 데모를 볼 수 있습니다.")
 
-            if load_sample:
-                if DEFAULT_SAMPLE_PARQUET.exists():
-                    # 샘플을 '운영 결과 파일' 위치로 복사해두면, 기존 로직을 그대로 재사용 가능
-                    ST_DATA_DIR.mkdir(parents=True, exist_ok=True)
-                    df_sample = pd.read_parquet(DEFAULT_SAMPLE_PARQUET)
-                    df_sample.to_parquet(MODEL_DF_PARQUET, index=False)
+                if load_sample:
+                    if DEFAULT_SAMPLE_PARQUET.exists():
+                        # 샘플을 '운영 결과 파일' 위치로 복사해두면, 기존 로직을 그대로 재사용 가능
+                        ST_DATA_DIR.mkdir(parents=True, exist_ok=True)
+                        df_sample = pd.read_parquet(DEFAULT_SAMPLE_PARQUET)
+                        df_sample.to_parquet(MODEL_DF_PARQUET, index=False)
 
-                    st.session_state["data_ready"] = True
+                        st.session_state["data_ready"] = True
+                        st.session_state["data_version"] += 1
+                        st.cache_data.clear()
+                        st.success("✅ 샘플 데이터 로드 완료! Tab2/Tab3에서 분포/시뮬레이션을 확인하세요.")
+                        st.rerun()
+                    else:
+                        st.error(f"샘플 파일이 없습니다: {DEFAULT_SAMPLE_PARQUET}")
+
+                st.divider()
+
+
+                # ---------------------------
+                # 1) 업로더 (key로 완전 초기화 가능)
+                # ---------------------------
+                uploaded_file = st.file_uploader(
+                    "Parquet 파일 업로드",
+                    type=["parquet"],
+                    key=f"tab4_uploader_{st.session_state['tab4_uploader_key']}"
+                )
+
+                colA, colB = st.columns([1, 1])
+                with colA:
+                    run = st.button("🚀 처리 시작", type="primary")
+                with colB:
+                    reset = st.button("🧹 결과/업로드 초기화")
+
+                # ---------------------------
+                # 2) 수동 초기화 버튼
+                # ---------------------------
+                if reset:
+                    # 1) 화면 결과 비우기
+                    st.session_state["tab4_result_df"] = None
+                    # 통계 비활성화 + 캐시 갱신
+                    st.session_state["data_ready"] = False
                     st.session_state["data_version"] += 1
-                    st.cache_data.clear()
-                    st.success("✅ 샘플 데이터 로드 완료! Tab2/Tab3에서 분포/시뮬레이션을 확인하세요.")
-                    st.rerun()
-                else:
-                    st.error(f"샘플 파일이 없습니다: {DEFAULT_SAMPLE_PARQUET}")
+                    # 2) 디스크에 남아있는 결과 파일까지 삭제
+                    try:
+                        if MODEL_DF_PARQUET.exists():
+                            MODEL_DF_PARQUET.unlink()
+                    except Exception as e:
+                        st.warning(f"결과 파일 삭제 실패: {e}")
 
-            st.divider()
-            # ---------------------------
-            # 0) 세션 키 초기화
-            # ---------------------------
-            if "tab4_uploader_key" not in st.session_state:
-                st.session_state["tab4_uploader_key"] = 0
-
-            # 결과 저장용(화면 표시용)
-            if "tab4_result_df" not in st.session_state:
-                st.session_state["tab4_result_df"] = None
-
-            # ---------------------------
-            # 1) 업로더 (key로 완전 초기화 가능)
-            # ---------------------------
-            uploaded_file = st.file_uploader(
-                "Parquet 파일 업로드",
-                type=["parquet"],
-                key=f"tab4_uploader_{st.session_state['tab4_uploader_key']}"
-            )
-
-            colA, colB = st.columns([1, 1])
-            with colA:
-                run = st.button("🚀 처리 시작", type="primary")
-            with colB:
-                reset = st.button("🧹 결과/업로드 초기화")
-
-            # ---------------------------
-            # 2) 수동 초기화 버튼
-            # ---------------------------
-            if reset:
-                # 1) 화면 결과 비우기
-                st.session_state["tab4_result_df"] = None
-                # 통계 비활성화 + 캐시 갱신
-                st.session_state["data_ready"] = False
-                st.session_state["data_version"] += 1
-                # 2) 디스크에 남아있는 결과 파일까지 삭제
-                try:
-                    if MODEL_DF_PARQUET.exists():
-                        MODEL_DF_PARQUET.unlink()
-                except Exception as e:
-                    st.warning(f"결과 파일 삭제 실패: {e}")
-
-                # 3) 업로더 위젯 리셋 (key 증가)
-                st.session_state["tab4_uploader_key"] += 1
-
-                # 4) 캐시 제거 (load_and_compute_distributions() 포함)
-                st.cache_data.clear()
-
-                st.success("🧹 결과/업로드 초기화 완료! (파일 삭제 포함)")
-                st.rerun()
-            
-            # ---------------------------
-            # 3) 처리 시작 버튼
-            # ---------------------------
-            if run:
-                # (A) 버튼 눌렀을 때: 이전 결과를 먼저 비움
-                st.session_state["tab4_result_df"] = None
-
-                # 파일 없으면 안내하고 끝
-                if uploaded_file is None:
-                    st.warning("먼저 Parquet 파일을 업로드해주세요.")
-                    st.stop()
-
-                # (B) 여기부터 새로 처리
-                model, calibrator, model_type, feature_names = get_model_artifact()
-
-                try:
-                    df_raw = pd.read_parquet(uploaded_file)
-                    df_raw.columns = df_raw.columns.str.lower()
-
-                    # 1) 전처리: ids는 preprocess_features_only가 리턴한 것을 그대로 신뢰
-                    X, ids = preprocess_features_only(df_raw)
-                    ids_arr = np.asarray(ids).reshape(-1).astype(str)
-
-                    # 2) 학습 컬럼 정렬
-                    X = sanitize_and_align(X, feature_names)
-
-                    # 3) 추론 + SHAP
-                    pd_hat, shap_feats, shap_vals = predict_pd_upload_with_shap(
-                        model, calibrator, model_type, X, top_n=10
-                    )
-
-                    pd_hat_arr = np.asarray(pd_hat).reshape(-1).astype(float)
-
-                    # 4) 길이 검증
-                    if len(ids_arr) != len(pd_hat_arr):
-                        raise ValueError(f"Length mismatch: ids={len(ids_arr)}, pd_hat={len(pd_hat_arr)}")
-
-                    pred_df = pd.DataFrame({
-                        "sk_id_curr": ids_arr,
-                        "pd_hat": pd_hat_arr,
-                    })
-
-                    # 5) SHAP 컬럼
-                    if shap_feats is not None and shap_vals is not None:
-                        if len(shap_feats) != len(pred_df) or len(shap_vals) != len(pred_df):
-                            raise ValueError(
-                                f"Length mismatch: pred_df={len(pred_df)}, "
-                                f"shap_feats={len(shap_feats)}, shap_vals={len(shap_vals)}"
-                            )
-                        pred_df["shap_features"] = list(shap_feats)
-                        pred_df["shap_values"] = list(shap_vals)
-
-                    # 6) HCIS 파생
-                    pred_df = compute_hcis_columns(pred_df, pd_col="pd_hat")
-
-                    # 7) 저장
-                    result_df = pred_df.copy()
-                    result_df["source_file"] = getattr(uploaded_file, "name", "uploaded_parquet")
-
-                    ST_DATA_DIR.mkdir(parents=True, exist_ok=True)
-                    result_df.to_parquet(MODEL_DF_PARQUET, index=False)
-
-                    # 통계 활성화 + 캐시 갱신 키 증가
-                    st.session_state["data_ready"] = True
-                    st.session_state["data_version"] += 1
-
-                    # 캐시 완전 안전빵
-                    st.cache_data.clear()
-
-                    # 세션에 "이번 결과만" 저장해서 화면에 보여주기
-                    st.session_state["tab4_result_df"] = result_df
-
-                    # 업로더도 비워서 “새로 올렸을 때만” 다시 처리되게 하고 싶다면:
+                    # 3) 업로더 위젯 리셋 (key 증가)
                     st.session_state["tab4_uploader_key"] += 1
 
-                    st.success(f"✅ 처리 완료! 저장됨: {MODEL_DF_PARQUET}")
-                    st.rerun()
+                    # 4) 캐시 제거 (load_and_compute_distributions() 포함)
+                    st.cache_data.clear()
 
-                except Exception as e:
-                    st.exception(e)
-                    st.stop()
+                    st.success("🧹 결과/업로드 초기화 완료! (파일 삭제 포함)")
+                    st.rerun()
+                
+                # ---------------------------
+                # 3) 처리 시작 버튼
+                # ---------------------------
+                if run:
+                    # (A) 버튼 눌렀을 때: 이전 결과를 먼저 비움
+                    st.session_state["tab4_result_df"] = None
+
+                    # 파일 없으면 안내하고 끝
+                    if uploaded_file is None:
+                        st.warning("먼저 Parquet 파일을 업로드해주세요.")
+
+                    # (B) 여기부터 새로 처리
+                    model, calibrator, model_type, feature_names = get_model_artifact()
+
+                    try:
+                        df_raw = pd.read_parquet(uploaded_file)
+                        df_raw.columns = df_raw.columns.str.lower()
+
+                        # 1) 전처리: ids는 preprocess_features_only가 리턴한 것을 그대로 신뢰
+                        X, ids = preprocess_features_only(df_raw)
+                        ids_arr = np.asarray(ids).reshape(-1).astype(str)
+
+                        # 2) 학습 컬럼 정렬
+                        X = sanitize_and_align(X, feature_names)
+
+                        # 3) 추론 + SHAP
+                        pd_hat, shap_feats, shap_vals = predict_pd_upload_with_shap(
+                            model, calibrator, model_type, X, top_n=10
+                        )
+
+                        pd_hat_arr = np.asarray(pd_hat).reshape(-1).astype(float)
+
+                        # 4) 길이 검증
+                        if len(ids_arr) != len(pd_hat_arr):
+                            raise ValueError(f"Length mismatch: ids={len(ids_arr)}, pd_hat={len(pd_hat_arr)}")
+
+                        pred_df = pd.DataFrame({
+                            "sk_id_curr": ids_arr,
+                            "pd_hat": pd_hat_arr,
+                        })
+
+                        # 5) SHAP 컬럼
+                        if shap_feats is not None and shap_vals is not None:
+                            if len(shap_feats) != len(pred_df) or len(shap_vals) != len(pred_df):
+                                raise ValueError(
+                                    f"Length mismatch: pred_df={len(pred_df)}, "
+                                    f"shap_feats={len(shap_feats)}, shap_vals={len(shap_vals)}"
+                                )
+                            pred_df["shap_features"] = list(shap_feats)
+                            pred_df["shap_values"] = list(shap_vals)
+
+                        # 6) HCIS 파생
+                        pred_df = compute_hcis_columns(pred_df, pd_col="pd_hat")
+
+                        # 7) 저장
+                        result_df = pred_df.copy()
+                        result_df["source_file"] = getattr(uploaded_file, "name", "uploaded_parquet")
+
+                        ST_DATA_DIR.mkdir(parents=True, exist_ok=True)
+                        result_df.to_parquet(MODEL_DF_PARQUET, index=False)
+
+                        # 통계 활성화 + 캐시 갱신 키 증가
+                        st.session_state["data_ready"] = True
+                        st.session_state["data_version"] += 1
+
+                        # 캐시 완전 안전빵
+                        st.cache_data.clear()
+
+                        # 세션에 "이번 결과만" 저장해서 화면에 보여주기
+                        st.session_state["tab4_result_df"] = result_df
+
+                        # 업로더도 비워서 “새로 올렸을 때만” 다시 처리되게 하고 싶다면:
+                        st.session_state["tab4_uploader_key"] += 1
+
+                        st.success(f"✅ 처리 완료! 저장됨: {MODEL_DF_PARQUET}")
+                        st.rerun()
+
+                    except Exception as e:
+                        st.exception(e)
 
             # ---------------------------
             # 4) 화면 표시: 세션에 저장된 최신 결과만 보여줌

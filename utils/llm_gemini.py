@@ -15,7 +15,6 @@ from google.genai import types
 _CURRENT = Path(__file__).resolve()
 ENV_PATH = _CURRENT.parent.parent / ".env" 
 load_dotenv(dotenv_path=ENV_PATH)
-
 # =========================================================
 # LLM Output Schema + System Instructions (Underwriter/Customer)
 # - 심사용: SHAP/값/Top10기여%까지 상세 노출 OK
@@ -293,8 +292,71 @@ def get_gemini_client() -> Tuple[genai.Client, str]:
     api_key = os.getenv("GEMINI_API_KEY")
     model = os.getenv("GEMINI_MODEL", "gemini-2.5-flash-lite")
     if not api_key:
-        raise RuntimeError(f"GEMINI_API_KEY not found. Tried loading from {ENV_PATH}")
+        return None, model
     return genai.Client(api_key=api_key), model
+
+# 기본값으로 사용될 MOCK 데모모드
+def mock_underwriter_response(payload_llm: dict) -> dict:
+    policy = payload_llm.get("policy", {}) or {}
+    band = policy.get("band", "추가검토")
+    margin = policy.get("margin_score", 0)
+
+    # 그룹 기여도(있으면 상위 3~5개 사용)
+    contrib = payload_llm.get("group_contribution_summary") or payload_llm.get("reason_contribution_summary") or []
+    reason_contributions = []
+    if isinstance(contrib, list):
+        reason_contributions = [str(x) for x in contrib[:5]]
+
+    # shap_top_10 있으면 상위 2~3개를 리스크 요인으로
+    top10 = payload_llm.get("shap_top_10") or []
+    risk_drivers = []
+    top_feature_rationales = []
+    if isinstance(top10, list) and top10:
+        for item in top10[:3]:
+            f = item.get("feature")
+            v = item.get("value")
+            s = item.get("shap")
+            g = item.get("reason_group")
+            r = item.get("reason_label")
+            pct = item.get("risk_pct_of_top10")
+            risk_drivers.append(f"{r or f} 관련 요인이 상대적으로 크게 작용했습니다.")
+
+            # 스키마 포맷과 유사하게(심사용)
+            top_feature_rationales.append(
+                f"{f}({r}/{g}) | 값={v} | SHAP={s} | Top10기여={pct}% | 해석=해당 요인이 위험도에 기여"
+            )
+
+    # band별 확인 질문/액션(간단 버전)
+    verification_questions = []
+    suggested_actions_for_review = []
+
+    if band == "추가검토":
+        verification_questions = [
+            "최근 소득/재직 변동 여부를 확인할 수 있을까요?",
+            "현재 부채 및 월 상환 부담에 대한 추가 확인이 필요합니다.",
+        ]
+        suggested_actions_for_review = [
+            "추가 소득증빙/재직증빙 확인",
+            "부채현황 재확인 후 조건부 승인 검토",
+        ]
+    elif band == "거절":
+        verification_questions = [
+            "최근 연체/상환 이력에 대한 추가 확인이 필요할 수 있습니다."
+        ]
+
+    # llm_report.py가 읽는 summary/reason_contributions/verification_questions 키를 맞춰줌 :contentReference[oaicite:3]{index=3}
+    return {
+        "_mode": "demo",  # UI에서 배지 띄우기 용도
+        "summary": f"🧪 데모 모드: 정책 기준상 {band} 구간이며 컷오프 대비 {margin:+.1f}점입니다. (API Key 미설정)",
+        "reason_contributions": reason_contributions or ["(데모) 위험 기여도 요약을 표시합니다."],
+        "risk_drivers": risk_drivers or ["(데모) 주요 요인 요약"],
+        "top_feature_rationales": top_feature_rationales or ["(데모) 상세 근거는 API 연결 시 제공됩니다."],
+        "verification_questions": verification_questions,
+        "suggested_actions_for_review": suggested_actions_for_review,
+        "customer_message_draft": "현재는 데모 모드로 운영되어 안내 문구가 간략히 표시됩니다.",
+        "disclaimer": "본 내용은 데모 출력이며, 실제 심사 결과는 추가 확인에 따라 달라질 수 있습니다.",
+    }
+
 
 # core runner
 def run_gemini_structured(
@@ -439,10 +501,14 @@ def run_with_retry(
 
 # 심사용 실행
 def ask_underwriter(payload: dict) -> dict:
-    client, model = get_gemini_client()
 
+    client, model = get_gemini_client()
     payload_llm = normalize_payload_for_llm(payload)
 
+    # api key 없으면 Mock 실행
+    if client is None:
+        return mock_underwriter_response(payload_llm)
+    
     # shap 확인여부
     if not payload_llm.get("shap_top_10"):
         raise RuntimeError("SHAP(top10) 정보가 payload에 없습니다. 업로드/추론 단계에서 shap_features/shap_values 저장 여부를 확인하세요.")

@@ -24,7 +24,7 @@ ST_DATA_DIR = BASE_DIR / "st_data"
 
 MAPPING_PATH = ST_DATA_DIR / "reason_code_mapping.parquet"
 MODEL_DF_PARQUET = ST_DATA_DIR / "model_df.parquet"
-DEFAULT_SAMPLE_PARQUET = ST_DATA_DIR / "app_test_sample_id.parquet"
+DEFAULT_SAMPLE_PARQUET = ST_DATA_DIR / "model_df_default.parquet"
 
 # ---------------- Score policy ----------------
 
@@ -42,7 +42,7 @@ PD_CEIL = 0.999999  # 상한값
 # ---------------- Decision policy (Dual cut-off) ----------------
 
 T_LOW = 675     # low 컷
-T_HIGH = 707    # high 컷
+T_HIGH = 720    # high 컷
 TOP_N = 10      # shap값 상위 몇개 사용?
 
 
