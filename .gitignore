@@ -6,9 +6,6 @@
 __pycache__/
 *.pyc
 
-# 결과물만 제외
-st_data/model_df.parquet
-
 # OS/IDE
 .vscode/
 .idea/
