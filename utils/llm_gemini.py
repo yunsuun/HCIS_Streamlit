@@ -1,4 +1,3 @@
-# llm_gemini.py  (권장 버전)
 from __future__ import annotations
 import os, json, time
 from dotenv import load_dotenv
@@ -7,8 +6,10 @@ from typing import Any, Dict, List, Optional, Callable, Tuple, Type
 from pathlib import Path
 from pydantic import BaseModel, Field
 
-from google import genai
-from google.genai import types
+USE_LLM = bool(os.getenv("GEMINI_API_KEY"))
+if USE_LLM:
+    from google import genai
+    from google.genai import types
 
 # .env 로딩
 _CURRENT = Path(__file__).resolve()
@@ -28,7 +29,7 @@ load_dotenv(dotenv_path=ENV_PATH)
 # ---------------------------------------------------------
 
 class UnderwriterResponse(BaseModel):
-    # ✅ "확정" 표현을 피하고, "정책 기준상 ~구간" 톤으로 요약하도록 유도
+    # "확정" 표현을 피하고, "정책 기준상 ~구간" 톤으로 요약하도록 유도
     summary: str = Field(
         description=(
             "정책 기준상 band(승인/추가검토/거절) 구간 + 컷오프 대비 margin을 1문장으로 요약. "
@@ -37,7 +38,7 @@ class UnderwriterResponse(BaseModel):
         max_length=240,
     )
 
-    # ✅ 그룹별 기여도는 payload.group_contribution_summary 기준
+    # 그룹별 기여도는 payload.group_contribution_summary 기준
     reason_contributions: List[str] = Field(
         description=(
             "payload.group_contribution_summary(또는 reason_contribution_summary) 기반 상위 3~6개. "
@@ -47,7 +48,7 @@ class UnderwriterResponse(BaseModel):
         max_items=6,
     )
 
-    # ✅ 리스크 요인은 반드시 top10 근거로(그룹만 보고 쓰지 않게)
+    # 리스크 요인은 반드시 top10 근거로(그룹만 보고 쓰지 않게)
     risk_drivers: List[str] = Field(
         description=(
             "리스크 요인 1~3개. 반드시 shap_top_10(=top_reasons) 상위 3개 feature 근거로 작성."
@@ -56,7 +57,7 @@ class UnderwriterResponse(BaseModel):
         max_items=3,
     )
 
-    # ✅ 심사팀은 '기여도(값)'이 핵심이므로, 포맷을 강하게 고정(흔들림 방지)
+    # 심사팀은 '기여도(값)'이 핵심이므로, 포맷을 강하게 고정(흔들림 방지)
     top_feature_rationales: List[str] = Field(
         description=(
             "shap_top_10(=top_reasons)에서만 3~5개 작성. "
@@ -68,7 +69,7 @@ class UnderwriterResponse(BaseModel):
         max_items=5,
     )
 
-    # ✅ 승인+마진 충분이면 빈 배열 허용(중요)
+    # 승인+마진 충분이면 빈 배열 허용(중요)
     verification_questions: List[str] = Field(
         description=(
             "심사팀 확인 질문 0~5개. "
@@ -124,7 +125,7 @@ class CustomerResponse(BaseModel):
         max_items=3,
     )
 
-    # ✅ 고객용은 수치/feature명 노출 금지. '의미 중심'으로만.
+    # 고객용은 수치/feature명 노출 금지. '의미 중심'으로만.
     top_feature_rationales: List[str] = Field(
         description=(
             "근거 3~5개. "
@@ -502,12 +503,13 @@ def run_with_retry(
 # 심사용 실행
 def ask_underwriter(payload: dict) -> dict:
 
+    # api key 없으면 Mock 실행
+    if not USE_LLM:
+        return mock_underwriter_response(payload_llm)
+    
     client, model = get_gemini_client()
     payload_llm = normalize_payload_for_llm(payload)
 
-    # api key 없으면 Mock 실행
-    if client is None:
-        return mock_underwriter_response(payload_llm)
     
     # shap 확인여부
     if not payload_llm.get("shap_top_10"):
