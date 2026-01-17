@@ -7,7 +7,6 @@ from typing import Any, Dict, List, Optional, Callable, Tuple, Type
 from pathlib import Path
 from pydantic import BaseModel, Field
 
-from google.genai.errors import ServerError
 from google import genai
 from google.genai import types
 
@@ -490,8 +489,9 @@ def run_with_retry(
     for attempt in range(1, max_retries + 1):
         try:
             return fn()
-        except ServerError as e:
-            if "503" in str(e):
+        except Exception as e:
+            msg = str(e)
+            if any(k in msg for k in ["503", "Service Unavailable", "temporarily unavailable"]):
                 wait = base_delay * (2 ** (attempt - 1))
                 time.sleep(wait)
                 continue
