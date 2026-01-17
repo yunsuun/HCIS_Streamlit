@@ -503,18 +503,17 @@ def run_with_retry(
 # 심사용 실행
 def ask_underwriter(payload: dict) -> dict:
 
+    payload_llm = normalize_payload_for_llm(payload)
+    
     # api key 없으면 Mock 실행
     if not USE_LLM:
         return mock_underwriter_response(payload_llm)
-    
-    client, model = get_gemini_client()
-    payload_llm = normalize_payload_for_llm(payload)
-
     
     # shap 확인여부
     if not payload_llm.get("shap_top_10"):
         raise RuntimeError("SHAP(top10) 정보가 payload에 없습니다. 업로드/추론 단계에서 shap_features/shap_values 저장 여부를 확인하세요.")
     
+    client, model = get_gemini_client()
     band = (payload_llm.get("policy", {}) or {}).get("band", "")
     prompt_band = UNDERWRITER_PROMPT_BY_BAND.get(band, UNDERWRITER_PROMPT_REVIEW)
 
