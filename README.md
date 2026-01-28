@@ -105,13 +105,28 @@ HCIS_Streamlit/
 ├─ 홈.py
 ├─ pages/
 │  ├─ 01_개요.py
-│  └─ ...
+│  ├─ 02_대출_심사.py
+│  └─ 03_추가검토_대상.py
 ├─ modules/
+│  ├─ __init__.py
 │  ├─ preprocess.py
 │  ├─ inference.py
+│  ├─ align.py
+│  ├─ calibrators.py
+│  ├─ cleaning.py
 │  └─ model_loader.py
 ├─ utils/
+│  ├─ __init__.py
+│  ├─ behavioral_insights.py
+│  ├─ data_loader.py
 │  ├─ hcis_core.py
+│  ├─ feature_semantic_map.py
+│  ├─ llm_gemini.py
+│  ├─ llm_report.py
+│  ├─ review_simulation.py
+│  ├─ risk_types.py
+│  ├─ rules.py
+│  ├─ shap_reason.py
 │  └─ data_loader.py
 ├─ requirements.txt
 └─ .gitignore
