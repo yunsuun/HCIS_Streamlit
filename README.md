@@ -103,12 +103,10 @@ streamlit run 홈.py
 ```text
 HCIS_Streamlit/
 ├─ 홈.py
+├─ config.py
 ├─ airflow/
 │  ├─ dags
-│  │  ├─ hello_hcis.py
-│  │  └─ pip.ipynb
-│  ├─ logs
-│  ├─ plugins
+│  │  └─ hello_hcis.py
 │  └─ docker-compose.yaml
 ├─ artifacts/
 │  ├─ models
