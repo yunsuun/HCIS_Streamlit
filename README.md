@@ -103,6 +103,18 @@ streamlit run 홈.py
 ```text
 HCIS_Streamlit/
 ├─ 홈.py
+├─ airflow/
+│  ├─ dags
+│  │  ├─ hello_hcis.py
+│  │  └─ pip.ipynb
+│  ├─ logs
+│  ├─ plugins
+│  └─ docker-compose.yaml
+├─ artifacts/
+│  ├─ models
+│  │  ├─ v1.0.0_XGB_artifact.joblib
+│  │  ├─ v1.0.1_XGB_artifact.joblib
+│  │  └─ v1.0.2_XGB_artifact.joblib
 ├─ pages/
 │  ├─ 01_개요.py
 │  ├─ 02_대출_심사.py

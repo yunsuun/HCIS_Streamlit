@@ -6,15 +6,17 @@ from typing import Any, Dict, List, Optional, Callable, Tuple, Type
 from pathlib import Path
 from pydantic import BaseModel, Field
 
-USE_LLM = bool(os.getenv("GEMINI_API_KEY"))
-if USE_LLM:
-    from google import genai
-    from google.genai import types
-
 # .env 로딩
 _CURRENT = Path(__file__).resolve()
 ENV_PATH = _CURRENT.parent.parent / ".env" 
 load_dotenv(dotenv_path=ENV_PATH)
+
+# api key가 있을때만 import
+# streamlit 데모용으로 cloud에서 쓰기 위해 에러 방지용
+USE_LLM = bool(os.getenv("GEMINI_API_KEY"))
+if USE_LLM:
+    from google import genai
+    from google.genai import types
 # =========================================================
 # LLM Output Schema + System Instructions (Underwriter/Customer)
 # - 심사용: SHAP/값/Top10기여%까지 상세 노출 OK
@@ -101,57 +103,57 @@ class UnderwriterResponse(BaseModel):
     )
 
 
-class CustomerResponse(BaseModel):
-    summary: str = Field(
-        description="현재 상태를 쉬운 말로 1문장(확정 표현 금지)",
-        max_length=200,
-    )
+# class CustomerResponse(BaseModel):
+#     summary: str = Field(
+#         description="현재 상태를 쉬운 말로 1문장(확정 표현 금지)",
+#         max_length=200,
+#     )
 
-    reason_contributions: List[str] = Field(
-        description=(
-            "payload.group_contribution_summary 기준 상위 2~3개만 %로 표현. "
-            "형식: '<사유(쉬운말)>: <pct>%'"
-        ),
-        min_items=2,
-        max_items=3,
-    )
+#     reason_contributions: List[str] = Field(
+#         description=(
+#             "payload.group_contribution_summary 기준 상위 2~3개만 %로 표현. "
+#             "형식: '<사유(쉬운말)>: <pct>%'"
+#         ),
+#         min_items=2,
+#         max_items=3,
+#     )
 
-    main_reasons: List[str] = Field(
-        description=(
-            "주요 사유 2~3개(쉬운 표현). "
-            "feature명/SHAP/내부 그룹명/서류 QC 같은 내부 용어 금지."
-        ),
-        min_items=2,
-        max_items=3,
-    )
+#     main_reasons: List[str] = Field(
+#         description=(
+#             "주요 사유 2~3개(쉬운 표현). "
+#             "feature명/SHAP/내부 그룹명/서류 QC 같은 내부 용어 금지."
+#         ),
+#         min_items=2,
+#         max_items=3,
+#     )
 
-    # 고객용은 수치/feature명 노출 금지. '의미 중심'으로만.
-    top_feature_rationales: List[str] = Field(
-        description=(
-            "근거 3~5개. "
-            "숫자(값/SHAP/%), feature명, 내부 그룹명(서류/운영 등) 직접 언급 금지. "
-            "대신 의미를 자연어로만 설명."
-        ),
-        min_items=3,
-        max_items=5,
-    )
+#     # 고객용은 수치/feature명 노출 금지. '의미 중심'으로만.
+#     top_feature_rationales: List[str] = Field(
+#         description=(
+#             "근거 3~5개. "
+#             "숫자(값/SHAP/%), feature명, 내부 그룹명(서류/운영 등) 직접 언급 금지. "
+#             "대신 의미를 자연어로만 설명."
+#         ),
+#         min_items=3,
+#         max_items=5,
+#     )
 
-    what_to_improve: List[str] = Field(
-        description="개선 행동 1~3개(고객이 실행 가능한 수준)",
-        min_items=1,
-        max_items=3,
-    )
+#     what_to_improve: List[str] = Field(
+#         description="개선 행동 1~3개(고객이 실행 가능한 수준)",
+#         min_items=1,
+#         max_items=3,
+#     )
 
-    what_to_prepare: List[str] = Field(
-        description="준비할 자료/확인사항 1~3개(내부 QC 표현 금지, 고객 요청 톤 과장 금지)",
-        min_items=1,
-        max_items=3,
-    )
+#     what_to_prepare: List[str] = Field(
+#         description="준비할 자료/확인사항 1~3개(내부 QC 표현 금지, 고객 요청 톤 과장 금지)",
+#         min_items=1,
+#         max_items=3,
+#     )
 
-    disclaimer: str = Field(
-        description="면책 문구(확정 금지, 추가 확인에 따라 변동 가능)",
-        max_length=220,
-    )
+#     disclaimer: str = Field(
+#         description="면책 문구(확정 금지, 추가 확인에 따라 변동 가능)",
+#         max_length=220,
+#     )
 
 
 # ---------------------------------------------------------
@@ -263,26 +265,26 @@ UNDERWRITER_PROMPT_BY_BAND = {
 }
 
 
-SYSTEM_CUSTOMER = """
-당신은 금융 대출 심사 결과를 고객에게 쉽게 설명하는 안내 AI입니다.
-입력 JSON(payload)에 포함된 정보만 근거로 사용하세요.
+# SYSTEM_CUSTOMER = """
+# 당신은 금융 대출 심사 결과를 고객에게 쉽게 설명하는 안내 AI입니다.
+# 입력 JSON(payload)에 포함된 정보만 근거로 사용하세요.
 
-[공통 원칙]
-- 승인/거절을 확정적으로 표현하지 마세요. (예: "승인되었습니다/거절되었습니다" 금지)
-- 입력에 없는 사실/숫자/원인을 만들지 마세요.
-- 출력은 반드시 JSON만 반환하세요. (추가 텍스트/설명 금지)
+# [공통 원칙]
+# - 승인/거절을 확정적으로 표현하지 마세요. (예: "승인되었습니다/거절되었습니다" 금지)
+# - 입력에 없는 사실/숫자/원인을 만들지 마세요.
+# - 출력은 반드시 JSON만 반환하세요. (추가 텍스트/설명 금지)
 
-[민감 정보/내부 로직 노출 금지]
-- 절대 금지: feature명, SHAP 값, risk_pct_of_top10 수치, 내부 QC, 내부 그룹명(예: 서류/운영 등) 직접 언급
-- 숫자는 고객이 이해 가능한 범위에서만 최소 사용하고, 내부 지표/모델 수치는 숨기세요.
+# [민감 정보/내부 로직 노출 금지]
+# - 절대 금지: feature명, SHAP 값, risk_pct_of_top10 수치, 내부 QC, 내부 그룹명(예: 서류/운영 등) 직접 언급
+# - 숫자는 고객이 이해 가능한 범위에서만 최소 사용하고, 내부 지표/모델 수치는 숨기세요.
 
-[설명 방식]
-- summary: 고객이 이해하기 쉬운 말로 현재 상태를 1문장(단정 금지)
-- reason_contributions: payload.group_contribution_summary 기반 상위 2~3개만 선택하여 %로 표현하되,
-  그룹명을 그대로 쓰지 말고 고객 친화적으로 바꿔서 작성하세요.
-- main_reasons / top_feature_rationales: 수치/컬럼명 없이 의미 중심으로 설명하세요.
-- what_to_improve / what_to_prepare: 고객이 실행 가능한 행동/준비물로 작성하세요.
-""".strip()
+# [설명 방식]
+# - summary: 고객이 이해하기 쉬운 말로 현재 상태를 1문장(단정 금지)
+# - reason_contributions: payload.group_contribution_summary 기반 상위 2~3개만 선택하여 %로 표현하되,
+#   그룹명을 그대로 쓰지 말고 고객 친화적으로 바꿔서 작성하세요.
+# - main_reasons / top_feature_rationales: 수치/컬럼명 없이 의미 중심으로 설명하세요.
+# - what_to_improve / what_to_prepare: 고객이 실행 가능한 행동/준비물로 작성하세요.
+# """.strip()
 
 
 
@@ -332,8 +334,9 @@ def mock_underwriter_response(payload_llm: dict) -> dict:
 
     if band == "추가검토":
         verification_questions = [
-            "최근 소득/재직 변동 여부를 확인할 수 있을까요?",
-            "현재 부채 및 월 상환 부담에 대한 추가 확인이 필요합니다.",
+            "부채 부담률이 높은 사유에 대한 추가 소득 증빙이 필요합니다.",
+            "외부 신용 평점 하락 사유에 대한 소명 자료가 필요합니다.",
+            "서류 및 운영 관련 항목의 추가 확인이 필요합니다.",
         ]
         suggested_actions_for_review = [
             "추가 소득증빙/재직증빙 확인",

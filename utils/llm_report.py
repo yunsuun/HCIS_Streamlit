@@ -23,7 +23,13 @@ def render_underwriter_report(under: dict, band: str, score: float, margin: floa
     )
 
     # 핵심 드라이버(Top 3~5)
-    drivers = under.get("key_drivers") or under.get("reason_contributions") or []
+    drivers = (
+        under.get("risk_drivers")
+        or under.get("key_drivers")
+        or under.get("reason_contributions")
+        or []
+    )
+
     if isinstance(drivers, list) and drivers:
         st.markdown("### 🔎 핵심 위험 요인 (요약)")
         for d in drivers[:5]:
@@ -37,9 +43,15 @@ def render_underwriter_report(under: dict, band: str, score: float, margin: floa
             st.markdown(f"- {m}")
 
     # 액션 아이템(심사팀이 바로 할 일)
-    actions = under.get("next_actions") or under.get("recommended_actions") or []
+    actions = (
+        under.get("suggested_actions_for_review")
+        or under.get("next_actions")
+        or under.get("recommended_actions")
+        or []
+    )
+
     if isinstance(actions, list) and actions:
-        st.markdown("### ✅ 다음 액션 (심사팀 체크리스트)")
+        st.markdown("### ✅ 추가검토 액션 (심사팀 체크리스트)")
         for a in actions[:6]:
             st.checkbox(a, value=False)
 

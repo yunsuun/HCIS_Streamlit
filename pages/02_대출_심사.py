@@ -18,9 +18,9 @@ from config import (
     APP_TITLE, ID_COL, OFFSET, FACTOR, T_LOW, T_HIGH,
     MODEL_DF_PARQUET, DEFAULT_SAMPLE_PARQUET, MAPPING_PATH, SCORE_MIN, SCORE_MAX, TOP_N
 )
+from utils.hcis_core import build_map_dict, build_payload_from_team_row, compute_hcis_columns
 from utils.llm_report import render_underwriter_report
 from utils.shap_reason import get_top_reason_items_from_shap_row
-from utils.hcis_core import build_map_dict, build_payload_from_team_row, compute_hcis_columns
 from utils.behavioral_insights import generate_behavioral_insights
 from utils.llm_gemini import ask_underwriter
 
