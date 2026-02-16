@@ -3,6 +3,17 @@ import shap
 import xgboost as xgb
 from packaging import version
 
+def predict_pd_only(model, calibrator, model_type: str, X):
+    # 1) PD raw
+    if model_type == "XGB":
+        X_np = X.to_numpy(np.float32)
+        pd_raw = model.predict_proba(X_np)[:, 1]
+    else:
+        pd_raw = model.predict_proba(X)[:, 1]
+
+    # 2) calibration
+    pd_hat = calibrator.predict(pd_raw)
+    return pd_hat
 
 def predict_pd_upload_with_shap(
     model,
